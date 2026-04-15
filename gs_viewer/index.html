@@ -1,0 +1,1127 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Gaussian 场景编辑器（Canvas3DGS）</title>
+    <style>
+      body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Noto Sans CJK SC","PingFang SC","Microsoft YaHei",sans-serif;background:#050810;color:#e8ecff}
+      header{padding:12px 16px;border-bottom:1px solid rgba(255,255,255,.10);display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+      .pill{border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);padding:8px 10px;border-radius:999px;font-size:12px;color:#a9b3da}
+      main{display:grid;grid-template-columns:1fr 320px;gap:12px;padding:12px}
+      @media (max-width: 980px){main{grid-template-columns:1fr}}
+      #view{height:calc(100vh - 96px);border:1px solid rgba(255,255,255,.10);border-radius:14px;overflow:hidden;background:#000;position:relative}
+      #viewCanvas{display:block;width:100%;height:100%}
+      #gizmoCanvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:auto;z-index:10;cursor:default}
+      #gizmoCanvas.dragging{cursor:grabbing}
+      .panel{border:1px solid rgba(255,255,255,.10);border-radius:14px;background:rgba(255,255,255,.04);padding:12px}
+      .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+      label{display:block;font-size:12px;color:#a9b3da;margin-bottom:6px}
+      input{width:100%;border-radius:12px;border:1px solid rgba(255,255,255,.10);background:rgba(0,0,0,.22);color:#e8ecff;padding:10px 12px;outline:none;box-sizing:border-box}
+      button{width:100%;border-radius:12px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.08);color:#e8ecff;padding:10px 12px;cursor:pointer}
+      button.primary{background:linear-gradient(135deg, rgba(124,92,255,.95), rgba(124,92,255,.55));border-color:rgba(124,92,255,.75)}
+      .toolbar{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+      .toolbar button{font-size:12px}
+      .hint{font-size:12px;color:#a9b3da;line-height:1.5}
+      .err{color:#fecaca}
+      .ok{color:#bbf7d0}
+      hr{border:none;border-top:1px solid rgba(255,255,255,.10);margin:12px 0}
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="pill">3DGS 场景编辑器</div>
+      <div class="pill">视角：左键旋转 / 右键平移 / 滚轮缩放 / 预设视角按钮</div>
+      <div class="pill">物体：Shift/Alt+左键拖拽平移；彩色圆环旋转（X红/Y绿/Z蓝）</div>
+      <div class="pill" id="filePill">状态：等待加载...</div>
+    </header>
+    <main>
+      <div id="view">
+        <canvas id="viewCanvas"></canvas>
+        <canvas id="gizmoCanvas"></canvas>
+      </div>
+      <div class="panel">
+        <div class="hint">
+          <b>编辑器模式说明：</b><br/>
+          1. 场景(Scene)：作为背景参考，可隐藏。<br/>
+          2. 拖动彩色圆环旋转物体（X轴红环 / Y轴绿环 / Z轴蓝环）。<br/>
+          3. 支持 <code>Shift/Alt + 左键</code> 平面拖拽物体位置（会自动贴地）。<br/>
+          4. 键盘：<code>W/A/S/D</code>平移，<code>Q/E</code>升降，<code>G</code>贴地，<code>+</code>/<code>-</code>精细缩放，<code>[</code>/<code>]</code>快速缩放，<code>R</code>重置缩放，<code>Ctrl + 滚轮</code>缩放当前物体；看不到就点“聚焦场景+物体”。
+        </div>
+        <hr/>
+        <div class="toolbar">
+          <button id="btnResetCamera">重置相机</button>
+          <button id="btnSnapGround">表面吸附（桌面/地面）</button>
+          <button id="btnToggleScene">切换场景显隐</button>
+          <button id="btnFocusObject">聚焦物体</button>
+          <button id="btnFocusAll">聚焦场景+物体</button>
+          <button id="btnCenterObject">物体回场景中心</button>
+          <button id="btnViewTop">俯视视角</button>
+          <button id="btnViewFront">正视视角</button>
+          <button id="btnViewLeft">左视视角</button>
+          <button id="btnFollowObject">跟随物体：关</button>
+          <button id="btnDownloadComposed">下载当前合成场景</button>
+          <button id="btnToggleGizmo">⭕ 显示旋转圆环</button>
+        </div>
+        <div style="height:10px"></div>
+
+        <div>
+          <label>当前操纵物体</label>
+          <select id="objectSelect" style="width:100%;border-radius:12px;border:1px solid rgba(255,255,255,.10);background:rgba(0,0,0,.22);color:#e8ecff;padding:10px 12px;outline:none;box-sizing:border-box">
+            <option value="">未选择</option>
+          </select>
+        </div>
+        <div style="height:10px"></div>
+        <div class="row">
+          <div><label>X位置</label><input id="px" value="0" /></div>
+          <div><label>Y位置</label><input id="py" value="0" /></div>
+          <div><label>Z位置</label><input id="pz" value="0" /></div>
+          <div><label>缩放</label><input id="sc" value="1" /></div>
+        </div>
+        <div style="height:10px"></div>
+        <div class="row">
+          <div><label>X旋转(°)</label><input id="rx" value="0" /></div>
+          <div><label>Y旋转(°)</label><input id="ry" value="0" /></div>
+          <div><label>Z旋转(°)</label><input id="rz" value="0" /></div>
+        </div>
+        <div style="height:10px"></div>
+        <button class="primary" id="btnCopy">复制变换参数到剪贴板</button>
+        <div id="err" class="hint err" style="margin-top:10px"></div>
+      </div>
+    </main>
+
+    <script type="module">
+      import { m as Vec3, L as Quat, qU, _U, UF, VF, BF, EU } from './canvas3dgs-core.js';
+
+      const $ = (id) => document.getElementById(id);
+      const err = $("err");
+      const filePill = $("filePill");
+      const canvas = $("viewCanvas");
+
+      function setErr(text, cls = "err") {
+        err.className = `hint ${cls}`;
+        err.textContent = text || "";
+      }
+
+      function setStatus(text) {
+        filePill.textContent = `状态：${text}`;
+      }
+
+      function num(id, fallback = 0) {
+        const value = Number($(id).value);
+        return Number.isFinite(value) ? value : fallback;
+      }
+
+      function degToRad(value) {
+        return value * Math.PI / 180;
+      }
+
+      function radToDeg(value) {
+        return value * 180 / Math.PI;
+      }
+
+      function isFiniteVec3(vec) {
+        return vec && Number.isFinite(vec.x) && Number.isFinite(vec.y) && Number.isFinite(vec.z);
+      }
+
+      function boundsFromObject(object) {
+        if (!object || !object.bounds) return null;
+        const bounds = object.bounds;
+        if (!isFiniteVec3(bounds.min) || !isFiniteVec3(bounds.max)) return null;
+        return bounds;
+      }
+
+      function mergeBounds(a, b) {
+        if (!a) return b;
+        if (!b) return a;
+        return {
+          min: a.min.min(b.min),
+          max: a.max.max(b.max),
+          center() {
+            return this.min.add(this.max).divide(2);
+          },
+          size() {
+            return this.max.subtract(this.min);
+          }
+        };
+      }
+
+      function computeVisibleBounds() {
+        let bounds = null;
+        if (sceneVisible && sceneObject) bounds = mergeBounds(bounds, boundsFromObject(sceneObject));
+        for (const obj of objectObjects) {
+          if (obj) bounds = mergeBounds(bounds, boundsFromObject(obj));
+        }
+        return bounds;
+      }
+      function ensureSceneVisible() {
+        if (!sceneObject) return;
+        const exists = renderScene.objects.includes(sceneObject);
+        if (!exists) {
+          renderScene.addObject(sceneObject);
+        }
+        sceneVisible = true;
+      }
+
+      function ensureObjectVisible() {
+        if (!objectObject) return;
+        const exists = renderScene.objects.includes(objectObject);
+        if (!exists) {
+          renderScene.addObject(objectObject);
+        }
+      }
+
+      function refreshObjectSelect() {
+        const sel = $("objectSelect");
+        if (!sel) return;
+        sel.innerHTML = "";
+        if (!objectObjects.length) {
+          const opt = document.createElement("option");
+          opt.value = "";
+          opt.textContent = "未选择";
+          sel.appendChild(opt);
+          sel.value = "";
+          return;
+        }
+        objectObjects.forEach((obj, idx) => {
+          const opt = document.createElement("option");
+          opt.value = String(idx);
+          opt.textContent = `物体 ${idx + 1}`;
+          sel.appendChild(opt);
+        });
+        sel.value = activeObjectIndex >= 0 ? String(activeObjectIndex) : "0";
+      }
+
+      function setActiveObject(index) {
+        if (!objectObjects.length) {
+          objectObject = null;
+          activeObjectIndex = -1;
+          refreshObjectSelect();
+          return;
+        }
+        const idx = Math.max(0, Math.min(index, objectObjects.length - 1));
+        activeObjectIndex = idx;
+        objectObject = objectObjects[idx] || null;
+        // 不对任何物体设置 selected，避免触发引擎的高亮轮廓渲染
+        objectObjects.forEach((obj) => {
+          try { obj.selected = false; } catch {}
+        });
+        refreshObjectSelect();
+        updateUIFromObject();
+      }
+
+      function focusAllContent() {
+        ensureSceneVisible();
+        ensureObjectVisible();
+        fitCameraToBounds(computeVisibleBounds(), 1.35);
+      }
+
+
+      function lookAtTarget(target) {
+        const dir = target.subtract(camera.position).normalize();
+        const pitch = Math.asin(-dir.y);
+        const yaw = Math.atan2(dir.x, dir.z);
+        camera.rotation = Quat.FromEuler(new Vec3(pitch, yaw, 0));
+        camera.update();
+      }
+
+      function fitCameraToBounds(bounds, expand = 1.8) {
+        if (!bounds) {
+          camera.position = new Vec3(0, -2.5, -4.5);
+          lookAtTarget(new Vec3(0, 0, 0));
+          controls.setCameraTarget(new Vec3(0, 0, 0));
+          controls.minZoom = 0.02;
+          controls.maxZoom = 1200;
+          updateClipPlanesByBounds(null, 4);
+          return;
+        }
+        const center = bounds.center();
+        const size = bounds.size();
+        const radius = Math.max(size.x, size.y, size.z, 0.75) * expand;
+        camera.position = new Vec3(
+          center.x + radius * 0.9,
+          center.y - radius * 0.72,
+          center.z - radius * 1.15
+        );
+        lookAtTarget(center);
+        controls.setCameraTarget(center);
+        controls.minZoom = Math.max(0.02, radius * 0.015);
+        controls.maxZoom = Math.max(200, radius * 30);
+        updateClipPlanesByBounds(bounds, radius);
+      }
+      function updateClipPlanesByBounds(bounds, fallbackRadius = 3) {
+        const radius = bounds ? Math.max(bounds.size().x, bounds.size().y, bounds.size().z, 0.75) : fallbackRadius;
+        // 关键：far 太小会导致“场景/物体突然消失”
+        camera.data.near = Math.max(0.005, radius * 0.0025);
+        camera.data.far = Math.max(1200, radius * 140);
+        camera.update();
+      }
+
+
+      function centerObjectInScene() {
+        if (!objectObject) return;
+        const sceneB = boundsFromObject(sceneObject);
+        const objB = boundsFromObject(objectObject);
+        if (!sceneB || !objB) return;
+        const sceneCenter = sceneB.center();
+        const objCenter = objB.center();
+        const delta = new Vec3(sceneCenter.x - objCenter.x, sceneCenter.y - objCenter.y, 0);
+        objectObject.position = objectObject.position.add(delta);
+        snapObjectToGround();
+        updateUIFromObject();
+      }
+
+      function viewTarget() {
+        const b = boundsFromObject(objectObject) || boundsFromObject(sceneObject);
+        return b ? b.center() : new Vec3(0, 0, 0);
+      }
+
+      function viewRadius() {
+        const b = computeVisibleBounds();
+        if (!b) return 3;
+        const s = b.size();
+        return Math.max(s.x, s.y, s.z, 1.0) * 1.8;
+      }
+
+      function setPresetView(dir) {
+        const t = viewTarget();
+        const r = viewRadius();
+        camera.position = new Vec3(
+          t.x + dir.x * r,
+          t.y + dir.y * r,
+          t.z + dir.z * r
+        );
+        lookAtTarget(t);
+        controls.setCameraTarget(t);
+      }
+
+      function _cellKey(ix, iy) {
+        return `${ix},${iy}`;
+      }
+
+      function buildSurfaceGridFromScene() {
+        surfaceGrid = new Map();
+        surfaceCell = 0.12;
+        if (!sceneObject || !sceneObject.data || !sceneObject.data.positions) return;
+
+        const pos = sceneObject.data.positions;
+        const count = Math.floor(pos.length / 3);
+        if (count <= 0) return;
+
+        const sceneB = boundsFromObject(sceneObject);
+        if (sceneB) {
+          const span = sceneB.size();
+          // 根据场景尺寸自适应网格精度
+          surfaceCell = Math.max(0.05, Math.min(0.22, Math.max(span.x, span.y) / 420));
+        }
+
+        const maxSamples = 900000;
+        const stride = Math.max(1, Math.floor(count / maxSamples));
+        const ox = sceneObject.position ? sceneObject.position.x : 0;
+        const oy = sceneObject.position ? sceneObject.position.y : 0;
+        const oz = sceneObject.position ? sceneObject.position.z : 0;
+
+        for (let i = 0; i < count; i += stride) {
+          const x = pos[i * 3 + 0] + ox;
+          const y = pos[i * 3 + 1] + oy;
+          const z = pos[i * 3 + 2] + oz;
+          if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) continue;
+          const ix = Math.floor(x / surfaceCell);
+          const iy = Math.floor(y / surfaceCell);
+          const key = _cellKey(ix, iy);
+          const old = surfaceGrid.get(key);
+          if (old === undefined || z > old) {
+            surfaceGrid.set(key, z);
+          }
+        }
+      }
+
+      function querySurfaceZAt(x, y, objectBottomZ) {
+        if (!surfaceGrid || surfaceGrid.size === 0) return groundZ;
+        const cx = Math.floor(x / surfaceCell);
+        const cy = Math.floor(y / surfaceCell);
+
+        const nearby = [];
+        const under = [];
+        const radius = 3;
+        for (let dx = -radius; dx <= radius; dx++) {
+          for (let dy = -radius; dy <= radius; dy++) {
+            const z = surfaceGrid.get(_cellKey(cx + dx, cy + dy));
+            if (z === undefined) continue;
+            nearby.push(z);
+            if (z <= objectBottomZ + 0.06) {
+              under.push(z);
+            }
+          }
+        }
+
+        if (under.length > 0) {
+          // 优先选择“物体当前底部以下最近的最高表面”，通常是桌面或地面
+          let best = under[0];
+          for (let i = 1; i < under.length; i++) {
+            if (under[i] > best) best = under[i];
+          }
+          return best;
+        }
+
+        if (nearby.length > 0) {
+          // 没有下方表面时，选择与当前底部最近的局部表面
+          let best = nearby[0];
+          let bestDist = Math.abs(nearby[0] - objectBottomZ);
+          for (let i = 1; i < nearby.length; i++) {
+            const d = Math.abs(nearby[i] - objectBottomZ);
+            if (d < bestDist) {
+              bestDist = d;
+              best = nearby[i];
+            }
+          }
+          return best;
+        }
+
+        return groundZ;
+      }
+
+      function updateGroundZ() {
+        const bounds = boundsFromObject(sceneObject);
+        groundZ = bounds ? bounds.min.z : 0;
+      }
+
+      function snapObjectToGround(targetObject = objectObject) {
+        if (!targetObject) return;
+        const bounds = boundsFromObject(targetObject);
+        if (!bounds) return;
+        const center = bounds.center();
+        const targetZ = querySurfaceZAt(center.x, center.y, bounds.min.z);
+        const delta = targetZ - bounds.min.z;
+        targetObject.position = targetObject.position.add(new Vec3(0, 0, delta));
+      }
+
+      function getObjectCenter(targetObject = objectObject) {
+        if (!targetObject) return new Vec3(0, 0, 0);
+        const bounds = boundsFromObject(targetObject);
+        return bounds ? bounds.center() : targetObject.position;
+      }
+
+      function setObjectRotationKeepingCenter(targetObject, quat) {
+        if (!targetObject) return;
+        const beforeCenter = getObjectCenter(targetObject);
+        targetObject.rotation = quat;
+        const afterCenter = getObjectCenter(targetObject);
+        const delta = beforeCenter.subtract(afterCenter);
+        targetObject.position = targetObject.position.add(delta);
+      }
+
+      function setObjectScaleKeepingCenter(targetObject, scale) {
+        if (!targetObject) return;
+        const beforeCenter = getObjectCenter(targetObject);
+        targetObject.scale = new Vec3(scale, scale, scale);
+        const afterCenter = getObjectCenter(targetObject);
+        const delta = beforeCenter.subtract(afterCenter);
+        targetObject.position = targetObject.position.add(delta);
+      }
+
+      function updateUIFromObject() {
+        if (!objectObject) return;
+        $("px").value = objectObject.position.x.toFixed(4);
+        $("py").value = objectObject.position.y.toFixed(4);
+        $("pz").value = objectObject.position.z.toFixed(4);
+        $("sc").value = objectObject.scale.x.toFixed(4);
+        const euler = objectObject.rotation.toEuler();
+        $("rx").value = radToDeg(euler.x).toFixed(2);
+        $("ry").value = radToDeg(euler.y).toFixed(2);
+        $("rz").value = radToDeg(euler.z).toFixed(2);
+      }
+
+      function applyUIToObject() {
+        if (!objectObject) return;
+        objectObject.position = new Vec3(num("px"), num("py"), num("pz"));
+        const scale = Math.max(0.001, num("sc", 1));
+        objectObject.scale = new Vec3(scale, scale, scale);
+        objectObject.rotation = Quat.FromEuler(new Vec3(
+          degToRad(num("rx")),
+          degToRad(num("ry")),
+          degToRad(num("rz"))
+        ));
+        snapObjectToGround();
+        updateUIFromObject();
+      }
+
+      function toNdc(event) {
+        const rect = canvas.getBoundingClientRect();
+        const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        const y = -(((event.clientY - rect.top) / rect.height) * 2 - 1);
+        return { x, y };
+      }
+
+      function intersectGround(event) {
+        const { x, y } = toNdc(event);
+        const ray = camera.screenPointToRay(x, y);
+        if (!Number.isFinite(ray.z) || Math.abs(ray.z) < 1e-6) return null;
+        const t = (groundZ - camera.position.z) / ray.z;
+        if (!Number.isFinite(t) || t <= 0) return null;
+        return camera.position.add(ray.multiply(t));
+      }
+
+      function beginDragging(event) {
+        if (!objectObject || event.button !== 0 || !(event.shiftKey || event.altKey)) return;
+        const hit = intersectGround(event);
+        if (!hit) return;
+        event.preventDefault();
+        event.stopPropagation();
+        dragging = true;
+        followBeforeDrag = followObject;
+        if (followObject) {
+          followObject = false;
+          $("btnFollowObject").textContent = "跟随物体：关";
+        }
+        const worldCenter = objectObject.bounds.center();
+        dragLocalCenter = worldCenter.subtract(objectObject.position);
+        dragOffset = worldCenter.subtract(hit);
+        setStatus("拖拽物体中...");
+        setErr("✅ 拖拽中，松开鼠标后会自动贴地", "ok");
+        window.addEventListener("mousemove", dragObject, true);
+        window.addEventListener("mouseup", endDragging, true);
+      }
+
+      function dragObject(event) {
+        if (!dragging || !objectObject) return;
+        const hit = intersectGround(event);
+        if (!hit) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const targetCenter = hit.add(dragOffset);
+        objectObject.position = targetCenter.subtract(dragLocalCenter);
+        snapObjectToGround();
+        updateUIFromObject();
+      }
+
+      function endDragging(event) {
+        if (!dragging) return;
+        event.preventDefault();
+        event.stopPropagation();
+        dragging = false;
+        window.removeEventListener("mousemove", dragObject, true);
+        window.removeEventListener("mouseup", endDragging, true);
+        snapObjectToGround();
+        updateUIFromObject();
+        if (followBeforeDrag) {
+          followObject = true;
+          $("btnFollowObject").textContent = "跟随物体：开";
+        }
+        setStatus("就绪");
+        setErr("✅ 拖拽完成，可继续右侧微调", "ok");
+      }
+
+      ["px", "py", "pz", "sc", "rx", "ry", "rz"].forEach((id) => {
+        $(id).addEventListener("change", applyUIToObject);
+      });
+
+      $("btnCopy").onclick = async () => {
+        if (!objectObject) return;
+        updateUIFromObject();
+        const data = {
+          position: [num("px"), num("py"), num("pz")],
+          rotation: [num("rx"), num("ry"), num("rz")],
+          scale: num("sc", 1)
+        };
+        await navigator.clipboard.writeText(JSON.stringify(data));
+        setErr("✅ 变换参数已复制", "ok");
+      };
+
+      $("btnResetCamera").onclick = () => {
+        focusAllContent();
+        setErr("✅ 已重置相机（场景+物体）", "ok");
+      };
+
+      $("btnSnapGround").onclick = () => {
+        snapObjectToGround();
+        updateUIFromObject();
+        setErr("✅ 已执行表面吸附", "ok");
+      };
+
+      $("btnToggleScene").onclick = () => {
+        if (!sceneObject) return;
+        if (sceneVisible) {
+          renderScene.removeObject(sceneObject);
+          sceneVisible = false;
+          setErr("✅ 已隐藏场景，只看当前物体", "ok");
+        } else {
+          renderScene.addObject(sceneObject);
+          sceneVisible = true;
+          if (objectObject) objectObject.selected = false;
+          setErr("✅ 已恢复场景显示（如看不到可点‘聚焦场景+物体’）", "ok");
+        }
+      };
+
+      $("btnFocusObject").onclick = () => {
+        if (!objectObject) return;
+        ensureObjectVisible();
+        fitCameraToBounds(boundsFromObject(objectObject), 1.7);
+        updateClipPlanesByBounds(computeVisibleBounds(), 4);
+        setErr("✅ 已聚焦物体", "ok");
+      };
+
+      $("btnFocusAll").onclick = () => {
+        focusAllContent();
+        setErr("✅ 已聚焦场景+物体", "ok");
+      };
+      $("btnCenterObject").onclick = () => {
+        centerObjectInScene();
+        setErr("✅ 物体已回到场景中心", "ok");
+      };
+
+      $("btnViewTop").onclick = () => setPresetView(new Vec3(0, -0.001, 1));
+      $("btnViewFront").onclick = () => setPresetView(new Vec3(0, -1, 0.2));
+      $("btnViewLeft").onclick = () => setPresetView(new Vec3(-1, 0, 0.2));
+      $("btnFollowObject").onclick = () => {
+        followObject = !followObject;
+        if (followObject && objectObject) {
+          lastFollowCenter = objectObject.bounds ? objectObject.bounds.center() : objectObject.position;
+        } else {
+          lastFollowCenter = null;
+        }
+        $("btnFollowObject").textContent = `跟随物体：${followObject ? "开" : "关"}`;
+        setErr(`✅ 跟随物体视角已${followObject ? "开启" : "关闭"}`, "ok");
+      };
+
+      $("btnDownloadComposed").onclick = () => {
+        try {
+          renderScene.saveToFile(`composed_scene_${Date.now()}.ply`, "ply");
+          setErr("✅ 已开始下载当前合成场景PLY", "ok");
+        } catch (e) {
+          setErr(`下载失败: ${e.message || e}`, "err");
+        }
+      };
+
+      window.addEventListener("keydown", (event) => {
+        if (!objectObject) return;
+        const tag = (document.activeElement && document.activeElement.tagName) || "";
+        if (tag === "INPUT" || tag === "TEXTAREA") return;
+
+        const fine = event.shiftKey;
+        const moveStep = fine ? 0.02 : 0.1;
+        const zStep = fine ? 0.02 : 0.08;
+        const scaleStep = fine ? 0.02 : 0.05;
+        const bigScaleStep = fine ? 0.08 : 0.12;
+        let handled = true;
+
+        if (event.key === "w" || event.key === "W" || event.key === "ArrowUp") {
+          objectObject.position = objectObject.position.add(new Vec3(0, moveStep, 0));
+        } else if (event.key === "s" || event.key === "S" || event.key === "ArrowDown") {
+          objectObject.position = objectObject.position.add(new Vec3(0, -moveStep, 0));
+        } else if (event.key === "a" || event.key === "A" || event.key === "ArrowLeft") {
+          objectObject.position = objectObject.position.add(new Vec3(-moveStep, 0, 0));
+        } else if (event.key === "d" || event.key === "D" || event.key === "ArrowRight") {
+          objectObject.position = objectObject.position.add(new Vec3(moveStep, 0, 0));
+        } else if (event.key === "q" || event.key === "Q" || event.key === "PageDown") {
+          objectObject.position = objectObject.position.add(new Vec3(0, 0, -zStep));
+        } else if (event.key === "e" || event.key === "E" || event.key === "PageUp") {
+          objectObject.position = objectObject.position.add(new Vec3(0, 0, zStep));
+        } else if (event.key === "g" || event.key === "G") {
+          snapObjectToGround();
+        } else if (event.key === "+" || event.key === "=" || event.key === "NumpadAdd") {
+          const nextScale = Math.max(0.001, objectObject.scale.x * (1 + scaleStep));
+          setObjectScaleKeepingCenter(objectObject, nextScale);
+          snapObjectToGround();
+        } else if (event.key === "-" || event.key === "_" || event.key === "NumpadSubtract") {
+          const nextScale = Math.max(0.001, objectObject.scale.x * (1 - scaleStep));
+          setObjectScaleKeepingCenter(objectObject, nextScale);
+          snapObjectToGround();
+        } else if (event.key === "]" || event.key === "}") {
+          const nextScale = Math.max(0.001, objectObject.scale.x * (1 + bigScaleStep));
+          setObjectScaleKeepingCenter(objectObject, nextScale);
+          snapObjectToGround();
+        } else if (event.key === "[" || event.key === "{") {
+          const nextScale = Math.max(0.001, objectObject.scale.x * (1 - bigScaleStep));
+          setObjectScaleKeepingCenter(objectObject, nextScale);
+          snapObjectToGround();
+        } else if (event.key === "r" || event.key === "R") {
+          setObjectScaleKeepingCenter(objectObject, 1.0);
+          snapObjectToGround();
+        } else {
+          handled = false;
+        }
+
+        if (handled) {
+          event.preventDefault();
+          updateUIFromObject();
+        }
+      });
+
+      const params = new URLSearchParams(location.search);
+      const sceneUrl = params.get("scene") || "";
+      const objectUrl = params.get("obj") || params.get("ply") || "";
+      const objectsParamRaw = params.get("objects") || "";
+      let objectsFromUrl = [];
+      if (objectsParamRaw) {
+        try {
+          const parsed = JSON.parse(objectsParamRaw);
+          if (Array.isArray(parsed)) objectsFromUrl = parsed;
+        } catch (e) {
+          console.warn("Failed to parse objects param:", e);
+        }
+      }
+
+      const hasPose = ["px", "py", "pz", "rx", "ry", "rz", "sc"].some((k) => params.has(k));
+      const poseFromUrl = {
+        px: Number(params.get("px") || 0),
+        py: Number(params.get("py") || 0),
+        pz: Number(params.get("pz") || 0),
+        rx: Number(params.get("rx") || 0),
+        ry: Number(params.get("ry") || 0),
+        rz: Number(params.get("rz") || 0),
+        sc: Number(params.get("sc") || 1)
+      };
+
+      const renderScene = new qU();
+      const camera = new _U();
+      const renderer3d = new VF(canvas);
+      renderer3d.backgroundColor = new EU(11, 16, 32, 255);
+      const controls = new BF(camera, canvas, 0.5, 0.5, 5, false);
+      controls.zoomSpeed = 1.35;
+      controls.panSpeed = 1.8;
+      controls.orbitSpeed = 0.85;
+      controls.dampening = 0.18;
+      controls.minZoom = 0.02;
+      controls.maxZoom = 2000;
+
+      let sceneObject = null;
+      let objectObject = null;
+      let objectObjects = [];
+      let activeObjectIndex = -1;
+      let sceneVisible = true;
+      let groundZ = 0;
+      let dragging = false;
+      let dragOffset = new Vec3();
+      let dragLocalCenter = new Vec3();
+      let followObject = false;
+      let lastFollowCenter = null;
+      let followBeforeDrag = false;
+      let surfaceGrid = new Map();
+      let surfaceCell = 0.12;
+
+      canvas.addEventListener("mousedown", beginDragging, true);
+
+      async function loadSceneObject(url, type) {
+        const before = renderScene.objects.length;
+        await UF.LoadAsync(url, renderScene, undefined);
+        const loaded = renderScene.objects[renderScene.objects.length - 1];
+        if (!loaded || renderScene.objects.length === before) {
+          throw new Error(`${type} 加载失败`);
+        }
+        return loaded;
+      }
+
+      async function init() {
+        try {
+          if (!sceneUrl && !objectUrl && !objectsFromUrl.length) {
+            throw new Error("未提供 scene 或 obj 参数");
+          }
+
+          if (sceneUrl) {
+            setStatus("加载场景中...");
+            sceneObject = await loadSceneObject(sceneUrl, "场景");
+            sceneObject.selected = false;
+            updateGroundZ();
+            buildSurfaceGridFromScene();
+          }
+
+          if (objectsFromUrl.length) {
+            setStatus(`加载多物体中（${objectsFromUrl.length} 个）...`);
+            for (let i = 0; i < objectsFromUrl.length; i++) {
+              const cfg = objectsFromUrl[i] || {};
+              if (!cfg.obj) continue;
+              const obj = await loadSceneObject(cfg.obj, `物体${i + 1}`);
+              obj.selected = false;
+              const px = Number(cfg.px || 0);
+              const py = Number(cfg.py || 0);
+              const pz = Number(cfg.pz || 0);
+              const rx = Number(cfg.rx || 0);
+              const ry = Number(cfg.ry || 0);
+              const rz = Number(cfg.rz || 0);
+              const sc = Math.max(0.001, Number(cfg.sc || 1));
+              obj.position = new Vec3(px, py, pz);
+              obj.scale = new Vec3(sc, sc, sc);
+              obj.rotation = Quat.FromEuler(new Vec3(degToRad(rx), degToRad(ry), degToRad(rz)));
+              snapObjectToGround(obj);
+              objectObjects.push(obj);
+            }
+            setActiveObject(0);
+            ensureSceneVisible();
+          } else if (objectUrl) {
+            setStatus("加载物体中...");
+            objectObject = await loadSceneObject(objectUrl, "物体");
+            objectObject.selected = false;
+
+            const poseEnergy = Math.abs(poseFromUrl.px) + Math.abs(poseFromUrl.py) + Math.abs(poseFromUrl.pz)
+              + Math.abs(poseFromUrl.rx) + Math.abs(poseFromUrl.ry) + Math.abs(poseFromUrl.rz) + Math.abs(poseFromUrl.sc - 1);
+            const usePose = hasPose && poseEnergy > 1e-5;
+
+            if (usePose) {
+              objectObject.position = new Vec3(
+                Number.isFinite(poseFromUrl.px) ? poseFromUrl.px : 0,
+                Number.isFinite(poseFromUrl.py) ? poseFromUrl.py : 0,
+                Number.isFinite(poseFromUrl.pz) ? poseFromUrl.pz : 0
+              );
+              const s = Math.max(0.001, Number.isFinite(poseFromUrl.sc) ? poseFromUrl.sc : 1);
+              objectObject.scale = new Vec3(s, s, s);
+              objectObject.rotation = Quat.FromEuler(new Vec3(
+                degToRad(Number.isFinite(poseFromUrl.rx) ? poseFromUrl.rx : 0),
+                degToRad(Number.isFinite(poseFromUrl.ry) ? poseFromUrl.ry : 0),
+                degToRad(Number.isFinite(poseFromUrl.rz) ? poseFromUrl.rz : 0)
+              ));
+            }
+
+            objectObjects = [objectObject];
+            centerObjectInScene();
+            ensureSceneVisible();
+            setActiveObject(0);
+          }
+
+          $("objectSelect").addEventListener("change", (event) => {
+            const idx = Number(event.target.value);
+            if (Number.isFinite(idx)) {
+              setActiveObject(idx);
+              setErr(`✅ 已切换到物体 ${idx + 1}`, "ok");
+            }
+          });
+
+          focusAllContent();
+          setStatus("就绪");
+          setErr("✅ 已切到和彩色预览一致的 3DGS 渲染链", "ok");
+        } catch (error) {
+          console.error("Viewer init failed:", error);
+          setStatus("加载失败");
+          setErr(`加载失败: ${error.message}`, "err");
+        }
+      }
+
+      function animate() {
+        if (followObject && objectObject) {
+          const target = objectObject.bounds ? objectObject.bounds.center() : objectObject.position;
+          if (lastFollowCenter) {
+            const delta = target.subtract(lastFollowCenter);
+            const move = Math.abs(delta.x) + Math.abs(delta.y) + Math.abs(delta.z);
+            if (move > 1e-6) {
+              // 平移相机，不改变相对观察方向，避免“跟随时视角自己乱转”
+              camera.position = camera.position.add(delta);
+              controls.setCameraTarget(target);
+            }
+          } else {
+            controls.setCameraTarget(target);
+          }
+          lastFollowCenter = target;
+        }
+
+        controls.update();
+        // 始终动态更新裁剪面，避免缩放/拖拽后场景或物体消失
+        updateClipPlanesByBounds(computeVisibleBounds(), 4);
+        renderer3d.resize();
+        renderer3d.render(renderScene, camera);
+        requestAnimationFrame(animate);
+      }
+
+      init();
+      animate();
+
+      // ─────────── Gizmo 系统（纯 Canvas2D，零依赖）───────────
+      const gizmoCanvas = $("gizmoCanvas");
+      const gizmoCtx = gizmoCanvas.getContext("2d");
+      let gizmoMode = "rotate"; // 仅保留旋转模式
+      let gizmoVisible = false; // 默认不显示圆环
+      let gizmoDragging = false;
+      let gizmoAxis = null;
+      let gizmoDragStart = null;
+      let gizmoDragStartPose = null;
+      let gizmoHovered = null;
+      let gizmoCurrentR = 80;
+      let gizmoCurrentL = 90;
+      const GIZMO_HIT = 14;
+      const GCOL = { x:"#ff4444", y:"#44ff44", z:"#4488ff" };
+
+      function gizmoResize() {
+        gizmoCanvas.width  = gizmoCanvas.offsetWidth;
+        gizmoCanvas.height = gizmoCanvas.offsetHeight;
+      }
+
+      function worldToScreen(wp) {
+        try {
+          const camData = camera._data;
+          if (!camData) return null;
+          const VP = camData._viewProj;
+          const buf = VP && VP.buffer ? VP.buffer : null;
+          if (!buf || buf.length < 16) return null;
+          // _viewProj 是列主序 Float32Array（WebGL 标准）
+          // buf[col*4+row], 所以 MVP * vec4 = :
+          const x=wp.x, y=wp.y, z=wp.z;
+          const cx = buf[0]*x + buf[4]*y + buf[8]*z  + buf[12];
+          const cy = buf[1]*x + buf[5]*y + buf[9]*z  + buf[13];
+          const cw = buf[3]*x + buf[7]*y + buf[11]*z + buf[15];
+          if (Math.abs(cw)<1e-8) return null;
+          const W=gizmoCanvas.width, H=gizmoCanvas.height;
+          return {x:(cx/cw*0.5+0.5)*W, y:(1-(cy/cw*0.5+0.5))*H, depth:cw};
+        } catch(e) { console.warn('[Gizmo]',e); return null; }
+      }
+
+      function projectCenter() {
+        if (!objectObject) return null;
+        // 直接用 position，不用 bounds.center()，避免 bounds 更新延迟导致圆环偏移
+        return worldToScreen(objectObject.position);
+      }
+
+      function projectAxis(ax) {
+        if (!objectObject) return null;
+        const c = objectObject.position;
+        const tip = new Vec3(c.x+ax.x*0.5, c.y+ax.y*0.5, c.z+ax.z*0.5);
+        const sc = worldToScreen(c), st = worldToScreen(tip);
+        if (!sc || !st) return null;
+        const dx=st.x-sc.x, dy=st.y-sc.y, len=Math.sqrt(dx*dx+dy*dy);
+        return len>0.5 ? {dx:dx/len,dy:dy/len} : null;
+      }
+
+      function drawGizmo() {
+        gizmoResize();
+        gizmoCtx.clearRect(0, 0, gizmoCanvas.width, gizmoCanvas.height);
+        if (!objectObject || !gizmoVisible) return;
+        const sc = projectCenter();
+        if (!sc || sc.depth < 0) return;
+        const cx=sc.x, cy=sc.y;
+        // 动态 gizmo 大小：根据物体到相机距离保持屏幕空间恒定
+        const objC = objectObject.position;
+        const camPos = camera.position;
+        const dist = camPos ? Math.sqrt((camPos.x-objC.x)**2+(camPos.y-objC.y)**2+(camPos.z-objC.z)**2) : 5;
+        const pixPerUnit = gizmoCanvas.height / (2*Math.max(dist,0.1)*Math.tan(0.5));
+        const GR = Math.max(50, Math.min(130, pixPerUnit * 1.2));
+        const GL = GR * 1.1;
+        const axes = { x:new Vec3(1,0,0), y:new Vec3(0,1,0), z:new Vec3(0,0,1) };
+        const g = gizmoCtx;
+        if (gizmoMode === 'rotate') {
+          [['x',GR*0.3,GR],['y',GR,GR*0.3],['z',GR,GR]].forEach(([ax,rx2,ry2]) => {
+            g.beginPath(); g.ellipse(cx,cy,rx2,ry2,0,0,Math.PI*2);
+            g.strokeStyle=gizmoHovered===ax?'#fff':GCOL[ax]; g.lineWidth=gizmoHovered===ax?4:2.5;
+            g.globalAlpha=gizmoHovered===ax?1.0:0.85; g.stroke(); g.globalAlpha=1.0;
+            g.fillStyle=gizmoHovered===ax?'#fff':GCOL[ax]; g.font='bold 12px monospace';
+            g.fillText(ax.toUpperCase(), cx+rx2+4, cy-ry2+12);
+          });
+        } else {
+          Object.entries(axes).forEach(([ax,wax]) => {
+            const dir=projectAxis(wax); if (!dir) return;
+            const ex=cx+dir.dx*GL, ey=cy+dir.dy*GL;
+            g.beginPath(); g.moveTo(cx,cy); g.lineTo(ex,ey);
+            g.strokeStyle=gizmoHovered===ax?'#fff':GCOL[ax]; g.lineWidth=gizmoHovered===ax?4:2.5;
+            g.globalAlpha=gizmoHovered===ax?1.0:0.85; g.stroke();
+            if (gizmoMode==='scale') {
+              const s=gizmoHovered===ax?10:8; g.fillStyle=gizmoHovered===ax?'#fff':GCOL[ax];
+              g.fillRect(ex-s/2,ey-s/2,s,s);
+            } else {
+              const a2=Math.atan2(dir.dy,dir.dx);
+              g.beginPath(); g.moveTo(ex,ey);
+              g.lineTo(ex-10*Math.cos(a2-0.4),ey-10*Math.sin(a2-0.4));
+              g.lineTo(ex-10*Math.cos(a2+0.4),ey-10*Math.sin(a2+0.4));
+              g.closePath(); g.fillStyle=gizmoHovered===ax?'#fff':GCOL[ax]; g.fill();
+            }
+            g.globalAlpha=1.0; g.fillStyle=gizmoHovered===ax?'#fff':GCOL[ax];
+            g.font='bold 12px monospace';
+            g.fillText(ax.toUpperCase(),ex+dir.dx*10-4,ey+dir.dy*10+4);
+          });
+        }
+        // hitTest 也要用 GR/GL，存到 gizmo 状态
+        gizmoCurrentR = GR; gizmoCurrentL = GL;
+      }
+      function hitTestGizmo(mx, my) {
+        if (!objectObject || !gizmoVisible) return null;
+        const sc = projectCenter();
+        if (!sc) return null;
+        const cx=sc.x, cy=sc.y;
+        const GR=gizmoCurrentR, GL=gizmoCurrentL;
+        if (gizmoMode==='rotate') {
+          const tests = [
+            {axis:'x', fn:()=>{ const dx=(mx-cx)/(GR*0.3),dy=(my-cy)/GR; return Math.abs(Math.sqrt(dx*dx+dy*dy)-1)*GR<GIZMO_HIT; }},
+            {axis:'y', fn:()=>{ const dx=(mx-cx)/GR,dy=(my-cy)/(GR*0.3); return Math.abs(Math.sqrt(dx*dx+dy*dy)-1)*GR<GIZMO_HIT; }},
+            {axis:'z', fn:()=>{ const d=Math.sqrt((mx-cx)**2+(my-cy)**2); return Math.abs(d-GR)<GIZMO_HIT; }},
+          ];
+          for (const t of tests) if (t.fn()) return t.axis;
+        } else {
+          const axes = { x:new Vec3(1,0,0), y:new Vec3(0,1,0), z:new Vec3(0,0,1) };
+          for (const [axis,wax] of Object.entries(axes)) {
+            const dir=projectAxis(wax); if (!dir) continue;
+            const t2=Math.max(0,Math.min(1,((mx-cx)*dir.dx+(my-cy)*dir.dy)/GL));
+            const px2=cx+t2*dir.dx*GL, py2=cy+t2*dir.dy*GL;
+            if (Math.sqrt((mx-px2)**2+(my-py2)**2)<GIZMO_HIT) return axis;
+          }
+        }
+        return null;
+      }
+
+      function capturePose() {
+        if (!objectObject) return null;
+        updateUIFromObject();
+        return {
+          px:num('px'),py:num('py'),pz:num('pz'),
+          rx:num('rx'),ry:num('ry'),rz:num('rz'),
+          sc:num('sc',1)
+        };
+      }
+
+      gizmoCanvas.addEventListener('mousemove', (event) => {
+        const rect=gizmoCanvas.getBoundingClientRect();
+        const mx=event.clientX-rect.left, my=event.clientY-rect.top;
+        if (!gizmoDragging) {
+          const hit=hitTestGizmo(mx,my);
+          if (hit!==gizmoHovered) {
+            gizmoHovered=hit;
+            gizmoCanvas.style.cursor=hit?'grab':'default';
+          }
+          return;
+        }
+        if (!gizmoDragStart||!objectObject) return;
+        // 增量模式：每帧用当前与上一帧的差，不用与起始点的差，避免跳位
+        const ddx = mx - gizmoDragStart.x;
+        const ddy = my - gizmoDragStart.y;
+        gizmoDragStart = {x:mx, y:my}; // 更新为当前位置
+
+        if (gizmoMode==='rotate') {
+          const sensitivity = 0.018;
+          let angle = 0;
+          if (gizmoAxis==='z') {
+            // Z轴：用鼠标绕屏幕中心的切线方向
+            const sc2=projectCenter();
+            if (sc2) {
+              const fromCx=mx-ddx-sc2.x, fromCy=my-ddy-sc2.y;
+              const toCx=mx-sc2.x, toCy=my-sc2.y;
+              const cross=fromCx*toCy - fromCy*toCx;
+              const fromLen=Math.sqrt(fromCx*fromCx+fromCy*fromCy);
+              const toLen=Math.sqrt(toCx*toCx+toCy*toCy);
+              if (fromLen>1 && toLen>1) angle=Math.asin(Math.max(-1,Math.min(1,cross/(fromLen*toLen))));
+            }
+          } else if (gizmoAxis==='x') {
+            angle = ddy * sensitivity;
+          } else {
+            angle = -ddx * sensitivity;
+          }
+          if (Math.abs(angle)>1e-6) {
+            // 直接以 objectObject.position 为旋转原点，不依赖 bounds
+            // position 就是物体在世界空间的锚点，旋转不改变它
+            const delta = gizmoAxis==='x' ? Quat.FromEuler(new Vec3(angle,0,0))
+                        : gizmoAxis==='y' ? Quat.FromEuler(new Vec3(0,angle,0))
+                                          : Quat.FromEuler(new Vec3(0,0,angle));
+            objectObject.rotation = delta.multiply ? delta.multiply(objectObject.rotation) : objectObject.rotation;
+            updateUIFromObject();
+          }
+        } else if (gizmoMode==='translate') {
+          const worldAxes={x:new Vec3(1,0,0),y:new Vec3(0,1,0),z:new Vec3(0,0,1)};
+          const wax=worldAxes[gizmoAxis];
+          const dir=projectAxis(wax);
+          if (dir) {
+            // 屏幕像素投影到世界单位：用物体到相机距离估算比例
+            const sc2=projectCenter();
+            const objC=objectObject.position;
+            const camPos=camera.position;
+            const dist=camPos?Math.sqrt((camPos.x-objC.x)**2+(camPos.y-objC.y)**2+(camPos.z-objC.z)**2):5;
+            const pixelsPerUnit = gizmoCanvas.height / (2*dist*Math.tan(0.5));
+            const proj=(ddx*dir.dx+ddy*dir.dy)/(pixelsPerUnit||80);
+            objectObject.position=objectObject.position.add(new Vec3(wax.x*proj,wax.y*proj,wax.z*proj));
+            updateUIFromObject();
+          } else if (gizmoAxis==='z') {
+            // Z轴投影退化时用屏幕竖直方向
+            const proj = -ddy * 0.01;
+            objectObject.position=objectObject.position.add(new Vec3(0,0,proj));
+            updateUIFromObject();
+          }
+        } else if (gizmoMode==='scale') {
+          const worldAxes={x:new Vec3(1,0,0),y:new Vec3(0,1,0),z:new Vec3(0,0,1)};
+          const dir=projectAxis(worldAxes[gizmoAxis]);
+          const proj=(dir?(ddx*dir.dx+ddy*dir.dy):ddy)*0.008;
+          const ns=Math.max(0.01, objectObject.scale.x*(1+proj));
+          setObjectScaleKeepingCenter(objectObject,ns);
+          updateUIFromObject();
+        }
+      });
+
+      gizmoCanvas.addEventListener('mousedown', (event) => {
+        if (event.button!==0) return;
+        const rect=gizmoCanvas.getBoundingClientRect();
+        const mx=event.clientX-rect.left, my=event.clientY-rect.top;
+        const hit=hitTestGizmo(mx,my);
+        if (!hit) {
+          canvas.dispatchEvent(new MouseEvent('mousedown', event));
+          return;
+        }
+        event.preventDefault(); event.stopPropagation();
+        gizmoDragging=true; gizmoAxis=hit;
+        gizmoDragStart={x:mx,y:my};
+        gizmoDragStartPose=null; // 增量模式不需要起始pose
+        gizmoCanvas.classList.add('dragging');
+      });
+
+      window.addEventListener('mouseup', () => {
+        if (!gizmoDragging) return;
+        gizmoDragging=false; gizmoAxis=null;
+        gizmoCanvas.classList.remove('dragging');
+        gizmoCanvas.style.cursor=gizmoHovered?'grab':'default';
+        updateUIFromObject();
+        setErr('✅ 旋转完成', 'ok');
+      });
+
+      // 转发非 gizmo 区域的鼠标事件到底层 3DGS canvas，保持轨道控制
+      function forwardToCanvas(event) {
+        if (gizmoDragging) return;
+        const rect=gizmoCanvas.getBoundingClientRect();
+        const mx=event.clientX-rect.left, my=event.clientY-rect.top;
+        if (hitTestGizmo(mx,my)) return; // 在 gizmo 上就不转发
+        canvas.dispatchEvent(new MouseEvent(event.type, event));
+      }
+      gizmoCanvas.addEventListener('mousemove',   forwardToCanvas);
+      gizmoCanvas.addEventListener('mouseup',     (e)=>{ if(!gizmoDragging) canvas.dispatchEvent(new MouseEvent('mouseup',e)); });
+      gizmoCanvas.addEventListener('contextmenu', (e)=>{ canvas.dispatchEvent(new MouseEvent('contextmenu',e)); });
+      gizmoCanvas.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        if (e.ctrlKey && objectObject) {
+          const scaleFactor = e.deltaY < 0 ? 1.06 : 0.94;
+          const nextScale = Math.max(0.001, objectObject.scale.x * scaleFactor);
+          setObjectScaleKeepingCenter(objectObject, nextScale);
+          snapObjectToGround();
+          updateUIFromObject();
+          setErr(`✅ 当前物体缩放：${nextScale.toFixed(3)}`, 'ok');
+          return;
+        }
+        canvas.dispatchEvent(new WheelEvent('wheel', e));
+      }, {passive:false});
+
+      // 每帧重绘 gizmo 覆盖层
+      const _origAnimate = animate;
+      function animateWithGizmo() {
+        drawGizmo();
+        requestAnimationFrame(animateWithGizmo);
+      }
+      animateWithGizmo();
+
+      // 调试：500ms 后打印相机对象结构，帮助确认 matrix 路径
+      setTimeout(() => {
+        const camData = (camera._data) || (camera.data) || camera;
+        console.log('[Gizmo Debug] camera._data exists:', !!camera._data);
+        console.log('[Gizmo Debug] camData keys:', Object.keys(camData));
+        const VP = camData._viewProj || camData.viewProj;
+        console.log('[Gizmo Debug] _viewProj type:', VP ? (VP.buffer ? 'has .buffer len='+VP.buffer.length : typeof VP) : 'null');
+        if (VP && VP.buffer) console.log('[Gizmo Debug] _viewProj[0..3]:', Array.from(VP.buffer.slice(0,4)));
+        if (objectObject) {
+          const c = objectObject.position;
+          console.log('[Gizmo Debug] object center:', c.x.toFixed(3), c.y.toFixed(3), c.z.toFixed(3));
+          const sc = projectCenter();
+          console.log('[Gizmo Debug] projected screen:', sc);
+        }
+      }, 3000);
+
+      // 模式固定为旋转，无需切换按钮
+      $('btnToggleGizmo').onclick = () => {
+        gizmoVisible = !gizmoVisible;
+        $('btnToggleGizmo').textContent = gizmoVisible ? '⭕ 隐藏旋转圆环' : '⭕ 显示旋转圆环';
+        $('btnToggleGizmo').className = gizmoVisible ? 'primary' : '';
+        if (!gizmoVisible) {
+          gizmoDragging = false; gizmoAxis = null; gizmoHovered = null;
+          gizmoCanvas.style.cursor = 'default';
+        }
+      };
+    </script>
+  </body>
+</html>

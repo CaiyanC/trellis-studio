@@ -6,7 +6,6 @@ import torch.nn.functional as F
 import numpy as np
 from torchvision import transforms
 from PIL import Image
-import rembg
 from .base import Pipeline
 from . import samplers
 from ..modules import sparse as sp
@@ -71,7 +70,24 @@ class TrellisImageTo3DPipeline(Pipeline):
         """
         Initialize the image conditioning model.
         """
-        dinov2_model = torch.hub.load('facebookresearch/dinov2', name, pretrained=True)
+        from pathlib import Path
+        import os
+
+        # 优先使用本地缓存，跳过联网验证（避免每次启动都去 GitHub 验证导致卡顿）
+        torch_home = os.environ.get("TORCH_HOME", str(Path.home() / ".cache" / "torch"))
+        local_repo_dir = Path(torch_home) / "hub" / "facebookresearch_dinov2_main"
+
+        if local_repo_dir.exists():
+            # 直接用本地缓存，source='local' 完全不联网
+            dinov2_model = torch.hub.load(
+                str(local_repo_dir),
+                name,
+                pretrained=True,
+                source="local",
+            )
+        else:
+            # 本地缓存不存在时才联网下载
+            dinov2_model = torch.hub.load('facebookresearch/dinov2', name, pretrained=True)
         dinov2_model.eval()
         self.models['image_cond_model'] = dinov2_model
         transform = transforms.Compose([
@@ -92,6 +108,9 @@ class TrellisImageTo3DPipeline(Pipeline):
         if has_alpha:
             output = input
         else:
+            # Delay importing rembg until it is actually needed so startup
+            # does not fail on environments with broken pymatting/numba.
+            import rembg
             input = input.convert('RGB')
             max_size = max(input.size)
             scale = min(1, 1024 / max_size)

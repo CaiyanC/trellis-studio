@@ -1,0 +1,67 @@
+{
+  "classroom": {
+    "name": "现代化教室",
+    "description": "温馨的现代化教室场景，适合放置学习用品",
+    "category": "教育",
+    "download_url": "https://example.com/classroom.zip",
+    "file_format": "gltf",
+    "tags": [
+      "教育",
+      "室内",
+      "学习"
+    ],
+    "downloaded": false
+  },
+  "space_station": {
+    "name": "太空空间站",
+    "description": "未来感十足的太空空间站，适合放置科幻元素",
+    "category": "科幻",
+    "download_url": "https://example.com/space_station.zip",
+    "file_format": "gltf",
+    "tags": [
+      "科幻",
+      "太空",
+      "未来"
+    ],
+    "downloaded": false
+  },
+  "cozy_library": {
+    "name": "温馨图书馆",
+    "description": "舒适的图书馆环境，适合放置书籍和阅读用品",
+    "category": "文化",
+    "download_url": "https://example.com/library.zip",
+    "file_format": "gltf",
+    "tags": [
+      "文化",
+      "室内",
+      "阅读"
+    ],
+    "downloaded": false
+  },
+  "garden_therapy": {
+    "name": "花园疗愈空间",
+    "description": "宁静的花园场景，适合放置植物和疗愈元素",
+    "category": "疗愈",
+    "download_url": "https://example.com/garden.zip",
+    "file_format": "gltf",
+    "tags": [
+      "疗愈",
+      "自然",
+      "花园"
+    ],
+    "downloaded": false
+  },
+  "medieval_castle": {
+    "name": "中世纪城堡",
+    "description": "古老的中世纪城堡，适合放置古典元素",
+    "category": "历史",
+    "download_url": "https://example.com/castle.zip",
+    "file_format": "gltf",
+    "tags": [
+      "历史",
+      "城堡",
+      "中世纪"
+    ],
+    "downloaded": false
+  }
+}

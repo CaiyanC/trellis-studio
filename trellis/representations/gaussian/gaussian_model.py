@@ -183,9 +183,12 @@ class Gaussian:
         if transform is not None:
             transform = np.array(transform)
             xyz = np.matmul(xyz, transform)
-            rotation = utils3d.numpy.quaternion_to_matrix(rotation)
-            rotation = np.matmul(rotation, transform)
-            rotation = utils3d.numpy.matrix_to_quaternion(rotation)
+            # Apply coordinate transform to rotations (quaternion -> matrix -> transform -> quaternion).
+            # NOTE: `rots` is the loaded quaternion array; previous code referenced an undefined `rotation`.
+            if rots.shape[1] == 4:
+                rotation = utils3d.numpy.quaternion_to_matrix(rots)
+                rotation = np.matmul(rotation, transform)
+                rots = utils3d.numpy.matrix_to_quaternion(rotation)
             
         # convert to actual gaussian attributes
         xyz = torch.tensor(xyz, dtype=torch.float, device=self.device)

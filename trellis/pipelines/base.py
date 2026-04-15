@@ -38,9 +38,17 @@ class Pipeline:
 
         _models = {}
         for k, v in args['models'].items():
-            try:
-                _models[k] = models.from_pretrained(f"{path}/{v}")
-            except:
+            import os
+            local_model_path = f"{path}/{v}"
+            local_config = f"{local_model_path}.json"
+            local_weights = f"{local_model_path}.safetensors"
+
+            # Only fall back to remote when the local checkpoint files are absent.
+            # If local files exist but model construction/loading fails, surface the
+            # real error instead of silently switching to Hugging Face.
+            if os.path.exists(local_config) and os.path.exists(local_weights):
+                _models[k] = models.from_pretrained(local_model_path)
+            else:
                 _models[k] = models.from_pretrained(v)
 
         new_pipeline = Pipeline(_models)

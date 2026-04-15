@@ -1,349 +1,272 @@
-<img src="assets/logo.webp" width="100%" align="center">
-<h1 align="center">Structured 3D Latents<br>for Scalable and Versatile 3D Generation</h1>
-<p align="center"><a href="https://arxiv.org/abs/2412.01506"><img src='https://img.shields.io/badge/arXiv-Paper-red?logo=arxiv&logoColor=white' alt='arXiv'></a>
-<a href='https://microsoft.github.io/TRELLIS/'><img src='https://img.shields.io/badge/Project_Page-Website-green?logo=googlechrome&logoColor=white' alt='Project Page'></a>
-<a href='https://huggingface.co/spaces/Microsoft/TRELLIS'><img src='https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Live_Demo-blue'></a>
-</p>
-<p align="center"><img src="assets/teaser.png" width="100%"></p>
+# TRELLIS Studio
 
-<span style="font-size: 16px; font-weight: 600;">T</span><span style="font-size: 12px; font-weight: 700;">RELLIS</span> is a large 3D asset generation model. It takes in text or image prompts and generates high-quality 3D assets in various formats, such as Radiance Fields, 3D Gaussians, and meshes. The cornerstone of <span style="font-size: 16px; font-weight: 600;">T</span><span style="font-size: 12px; font-weight: 700;">RELLIS</span> is a unified Structured LATent (<span style="font-size: 16px; font-weight: 600;">SL</span><span style="font-size: 12px; font-weight: 700;">AT</span>) representation that allows decoding to different output formats and Rectified Flow Transformers tailored for <span style="font-size: 16px; font-weight: 600;">SL</span><span style="font-size: 12px; font-weight: 700;">AT</span> as the powerful backbones. We provide large-scale pre-trained models with up to 2 billion parameters on a large 3D asset dataset of 500K diverse objects. <span style="font-size: 16px; font-weight: 600;">T</span><span style="font-size: 12px; font-weight: 700;">RELLIS</span> significantly surpasses existing methods, including recent ones at similar scales, and showcases flexible output format selection and local 3D editing capabilities which were not offered by previous models.
+一个基于 `TRELLIS` 深度改造的 3D 资产生成与场景编辑工作台。
 
-***Check out our [Project Page](https://microsoft.github.io/TRELLIS/) for more videos and interactive demos!***
+它将官方的文本生成 / 图片生成能力整合为一个统一应用，并补充了：
 
-<!-- Features -->
-## 🌟 Features
-- **High Quality**: It produces diverse 3D assets at high quality with intricate shape and texture details.
-- **Versatility**: It takes text or image prompts and can generate various final 3D representations including but not limited to *Radiance Fields*, *3D Gaussians*, and *meshes*, accommodating diverse downstream requirements.
-- **Flexible Editing**: It allows for easy editings of generated 3D assets, such as generating variants of the same object or local editing of the 3D asset.
+- 中文提示词本地翻译
+- 单图 / 多视角 3D 生成
+- 生成资产后台管理
+- `GLB` / Gaussian `PLY` 导出
+- 场景高斯导入与多物体合成
+- 基于浏览器的 3DGS 交互式编辑器
 
-<!-- Updates -->
-## ⏩ Updates
+> 这是一个偏“应用工作台”的仓库，而不是仅保留官方 demo 的原始镜像。
 
-**03/25/2025**
-- Release training code.
-- Release **TRELLIS-text** models and asset variants generation.
-  - Examples are provided as [example_text.py](example_text.py) and [example_variant.py](example_variant.py).
-  - Gradio demo is provided as [app_text.py](app_text.py).
-  - *Note: It is always recommended to do text to 3D generation by first generating images using text-to-image models and then using TRELLIS-image models for 3D generation. Text-conditioned models are less creative and detailed due to data limitations.*
+---
 
-**12/26/2024**
-- Release [**TRELLIS-500K**](https://github.com/microsoft/TRELLIS#-dataset) dataset and toolkits for data preparation.
+## 功能概览
 
-**12/18/2024**
-- Implementation of multi-image conditioning for **TRELLIS-image** model. ([#7](https://github.com/microsoft/TRELLIS/issues/7)). This is based on tuning-free algorithm without training a specialized model, so it may not give the best results for all input images.
-- Add Gaussian export in `app.py` and `example.py`. ([#40](https://github.com/microsoft/TRELLIS/issues/40))
+### 1. 文本生成 3D
+- 支持中文 / 英文提示词
+- 中文可通过本地翻译模型转英文后生成
+- 输出预览视频、`GLB`、Gaussian `PLY`
 
-<!-- Installation -->
-## 📦 Installation
+### 2. 单图生成 3D
+- 上传单张参考图生成 3D 资产
+- 自动纳入后台资产管理
+- 支持继续用于场景编辑
 
-### Prerequisites
-- **System**: The code is currently tested only on **Linux**.  For windows setup, you may refer to [#3](https://github.com/microsoft/TRELLIS/issues/3) (not fully tested).
-- **Hardware**: An NVIDIA GPU with at least 16GB of memory is necessary. The code has been verified on NVIDIA A100 and A6000 GPUs.  
-- **Software**:   
-  - The [CUDA Toolkit](https://developer.nvidia.com/cuda-toolkit-archive) is needed to compile certain submodules. The code has been tested with CUDA versions 11.8 and 12.2.  
-  - [Conda](https://docs.anaconda.com/miniconda/install/#quick-command-line-install) is recommended for managing dependencies.  
-  - Python version 3.8 or higher is required. 
+### 3. 多视角融合生成
+- 上传 3 张左右多视角图片进行融合生成
+- 支持多图模式下的统一导出与资产复用
 
-### Installation Steps
-1. Clone the repo:
-    ```sh
-    git clone --recurse-submodules https://github.com/microsoft/TRELLIS.git
-    cd TRELLIS
-    ```
+### 4. 资产管理
+- 每次生成的资产自动保存到 `generated_assets/<asset_name>/`
+- 自动记录 `metadata.json`
+- 自动生成：
+  - `preview.mp4`
+  - `asset.glb`
+  - `asset.ply`
+  - `poster.png`
 
-2. Install the dependencies:
-    
-    **Before running the following command there are somethings to note:**
-    - By adding `--new-env`, a new conda environment named `trellis` will be created. If you want to use an existing conda environment, please remove this flag.
-    - By default the `trellis` environment will use pytorch 2.4.0 with CUDA 11.8. If you want to use a different version of CUDA (e.g., if you have CUDA Toolkit 12.2 installed and do not want to install another 11.8 version for submodule compilation), you can remove the `--new-env` flag and manually install the required dependencies. Refer to [PyTorch](https://pytorch.org/get-started/previous-versions/) for the installation command.
-    - If you have multiple CUDA Toolkit versions installed, `PATH` should be set to the correct version before running the command. For example, if you have CUDA Toolkit 11.8 and 12.2 installed, you should run `export PATH=/usr/local/cuda-11.8/bin:$PATH` before running the command.
-    - By default, the code uses the `flash-attn` backend for attention. For GPUs do not support `flash-attn` (e.g., NVIDIA V100), you can remove the `--flash-attn` flag to install `xformers` only and set the `ATTN_BACKEND` environment variable to `xformers` before running the code. See the [Minimal Example](#minimal-example) for more details.
-    - The installation may take a while due to the large number of dependencies. Please be patient. If you encounter any issues, you can try to install the dependencies one by one, specifying one flag at a time.
-    - If you encounter any issues during the installation, feel free to open an issue or contact us.
-    
-    Create a new conda environment named `trellis` and install the dependencies:
-    ```sh
-    . ./setup.sh --new-env --basic --xformers --flash-attn --diffoctreerast --spconv --mipgaussian --kaolin --nvdiffrast
-    ```
-    The detailed usage of `setup.sh` can be found by running `. ./setup.sh --help`.
-    ```sh
-    Usage: setup.sh [OPTIONS]
-    Options:
-        -h, --help              Display this help message
-        --new-env               Create a new conda environment
-        --basic                 Install basic dependencies
-        --train                 Install training dependencies
-        --xformers              Install xformers
-        --flash-attn            Install flash-attn
-        --diffoctreerast        Install diffoctreerast
-        --spconv                Install spconv
-        --mipgaussian           Install mip-splatting
-        --kaolin                Install kaolin
-        --nvdiffrast            Install nvdiffrast
-        --demo                  Install all dependencies for demo
-    ```
+### 5. 场景编辑与合成
+- 支持导入场景高斯 `PLY`
+- 支持从后台资产中选择物体加入场景
+- 支持物体位置、旋转、缩放调整
+- 支持多物体 Gaussian 场景合成
 
-<!-- Pretrained Models -->
-## 🤖 Pretrained Models
+### 6. 浏览器交互式编辑器
+- 基于 `gs_viewer/` 提供轻量 3DGS 浏览器编辑界面
+- 支持物体选择、聚焦、缩放、旋转等操作
+- 已针对快捷键与缩放交互做过增强
 
-We provide the following pretrained models:
+---
 
-| Model | Description | #Params | Download |
-| --- | --- | --- | --- |
-| TRELLIS-image-large | Large image-to-3D model | 1.2B | [Download](https://huggingface.co/microsoft/TRELLIS-image-large) |
-| TRELLIS-text-base | Base text-to-3D model | 342M | [Download](https://huggingface.co/microsoft/TRELLIS-text-base) |
-| TRELLIS-text-large | Large text-to-3D model | 1.1B | [Download](https://huggingface.co/microsoft/TRELLIS-text-large) |
-| TRELLIS-text-xlarge | Extra-large text-to-3D model | 2.0B | [Download](https://huggingface.co/microsoft/TRELLIS-text-xlarge) |
+## 项目结构
 
-*Note: It is always recommended to use the image conditioned version of the models for better performance.*
-
-*Note: All VAEs are included in **TRELLIS-image-large** model repo.*
-
-The models are hosted on Hugging Face. You can directly load the models with their repository names in the code:
-```python
-TrellisImageTo3DPipeline.from_pretrained("microsoft/TRELLIS-image-large")
+```text
+TRELLIS/
+├── app_unified.py              # 主入口：统一 Gradio 工作台
+├── app.py                      # 原始官方 image demo
+├── app_text.py                 # 原始官方 text demo
+├── scene_editor.py             # 场景编辑工作流
+├── scene_downloader.py         # 场景导入/管理辅助
+├── scene_manager.py            # 场景信息管理
+├── object_placer.py            # 物体放置与场景导出
+├── gaussian_ply_composer.py    # 多高斯 PLY 合成
+├── gs_viewer/                  # 浏览器端 3DGS 查看与交互编辑器
+├── trellis/                    # TRELLIS 核心推理/训练代码
+├── configs/                    # 官方配置
+├── assets/                     # 示例图与静态资源
+├── scenes/                     # 场景配置与导入场景
+├── models/                     # 本地模型目录（默认不上传）
+├── generated_assets/           # 生成结果目录（默认不上传）
+├── scenes_gs/                  # 场景高斯/合成结果（默认不上传）
+├── tmp/                        # 运行临时文件（默认不上传）
+└── setup.sh                    # 官方依赖安装脚本
 ```
 
-If you prefer loading the model from local, you can download the model files from the links above and load the model with the folder path (folder structure should be maintained):
-```python
-TrellisImageTo3DPipeline.from_pretrained("/path/to/TRELLIS-image-large")
+---
+
+## 运行环境
+
+### 硬件
+- NVIDIA GPU，建议显存 ≥ 16GB
+
+### 系统
+- Linux
+- Python 3.10 推荐
+- Conda 推荐
+
+### 已验证依赖方式
+项目保留了官方 `setup.sh` 安装脚本，适合直接基于官方 TRELLIS 环境安装。
+
+---
+
+## 快速开始
+
+### 1. 克隆仓库
+
+```bash
+git clone <your-repo-url>
+cd TRELLIS
 ```
 
-<!-- Usage -->
-## 💡 Usage
+### 2. 创建并激活环境
 
-### Minimal Example
-
-Here is an [example](example.py) of how to use the pretrained models for 3D asset generation.
-
-```python
-import os
-# os.environ['ATTN_BACKEND'] = 'xformers'   # Can be 'flash-attn' or 'xformers', default is 'flash-attn'
-os.environ['SPCONV_ALGO'] = 'native'        # Can be 'native' or 'auto', default is 'auto'.
-                                            # 'auto' is faster but will do benchmarking at the beginning.
-                                            # Recommended to set to 'native' if run only once.
-
-import imageio
-from PIL import Image
-from trellis.pipelines import TrellisImageTo3DPipeline
-from trellis.utils import render_utils, postprocessing_utils
-
-# Load a pipeline from a model folder or a Hugging Face model hub.
-pipeline = TrellisImageTo3DPipeline.from_pretrained("microsoft/TRELLIS-image-large")
-pipeline.cuda()
-
-# Load an image
-image = Image.open("assets/example_image/T.png")
-
-# Run the pipeline
-outputs = pipeline.run(
-    image,
-    seed=1,
-    # Optional parameters
-    # sparse_structure_sampler_params={
-    #     "steps": 12,
-    #     "cfg_strength": 7.5,
-    # },
-    # slat_sampler_params={
-    #     "steps": 12,
-    #     "cfg_strength": 3,
-    # },
-)
-# outputs is a dictionary containing generated 3D assets in different formats:
-# - outputs['gaussian']: a list of 3D Gaussians
-# - outputs['radiance_field']: a list of radiance fields
-# - outputs['mesh']: a list of meshes
-
-# Render the outputs
-video = render_utils.render_video(outputs['gaussian'][0])['color']
-imageio.mimsave("sample_gs.mp4", video, fps=30)
-video = render_utils.render_video(outputs['radiance_field'][0])['color']
-imageio.mimsave("sample_rf.mp4", video, fps=30)
-video = render_utils.render_video(outputs['mesh'][0])['normal']
-imageio.mimsave("sample_mesh.mp4", video, fps=30)
-
-# GLB files can be extracted from the outputs
-glb = postprocessing_utils.to_glb(
-    outputs['gaussian'][0],
-    outputs['mesh'][0],
-    # Optional parameters
-    simplify=0.95,          # Ratio of triangles to remove in the simplification process
-    texture_size=1024,      # Size of the texture used for the GLB
-)
-glb.export("sample.glb")
-
-# Save Gaussians as PLY files
-outputs['gaussian'][0].save_ply("sample.ply")
+```bash
+conda create -n trellis python=3.10 -y
+conda activate trellis
 ```
 
-After running the code, you will get the following files:
-- `sample_gs.mp4`: a video showing the 3D Gaussian representation
-- `sample_rf.mp4`: a video showing the Radiance Field representation
-- `sample_mesh.mp4`: a video showing the mesh representation
-- `sample.glb`: a GLB file containing the extracted textured mesh
-- `sample.ply`: a PLY file containing the 3D Gaussian representation
+### 3. 安装依赖
 
+如果你希望沿用官方推荐方式：
 
-### Web Demo
-
-[app.py](app.py) provides a simple web demo for 3D asset generation. Since this demo is based on [Gradio](https://gradio.app/), additional dependencies are required:
-```sh
-. ./setup.sh --demo
+```bash
+. ./setup.sh --basic --xformers --flash-attn --diffoctreerast --spconv --mipgaussian --kaolin --nvdiffrast
 ```
 
-After installing the dependencies, you can run the demo with the following command:
-```sh
-python app.py
+如果只想先跑 Web 应用相关依赖，也可以在官方依赖基础上自行补齐所需包。
+
+### 4. 设置环境变量
+
+推荐使用 `xformers`：
+
+```bash
+export ATTN_BACKEND=xformers
+export SPARSE_ATTN_BACKEND=xformers
+export SPCONV_ALGO=native
 ```
 
-Then, you can access the demo at the address shown in the terminal.
+### 5. 准备模型
 
+本项目默认从本地目录读取模型：
 
-<!-- Dataset -->
-## 📚 Dataset
+- `./models/TRELLIS-image-large`
+- `./models/TRELLIS-text-large`
+- `./models/translation_zh_en`
 
-We provide **TRELLIS-500K**, a large-scale dataset containing 500K 3D assets curated from [Objaverse(XL)](https://objaverse.allenai.org/), [ABO](https://amazon-berkeley-objects.s3.amazonaws.com/index.html), [3D-FUTURE](https://tianchi.aliyun.com/specials/promotion/alibaba-3d-future), [HSSD](https://huggingface.co/datasets/hssd/hssd-models), and [Toys4k](https://github.com/rehg-lab/lowshot-shapebias/tree/main/toys4k), filtered based on aesthetic scores. Please refer to the [dataset README](DATASET.md) for more details.
+你需要提前把这些模型放到对应目录。
 
+#### 必需模型
 
-<!-- Training -->
-## 🏋️‍♂️ Training
+1. `TRELLIS-image-large`
+2. `TRELLIS-text-large`
+3. 中文翻译模型 `translation_zh_en`（仅中文文本输入时需要）
 
-TRELLIS’s training framework is organized to provide a flexible and modular approach to building and fine-tuning large-scale 3D generation models. The training code is centered around `train.py` and is structured into several directories to clearly separate dataset handling, model components, training logic, and visualization utilities.
+#### 目录示例
 
-### Code Structure
-
-- **train.py**: Main entry point for training.
-- **trellis/datasets**: Dataset loading and preprocessing.
-- **trellis/models**: Different models and their components.
-- **trellis/modules**: Custom modules for various models.
-- **trellis/pipelines**: Inference pipelines for different models.
-- **trellis/renderers**: Renderers for different 3D representations.
-- **trellis/representations**: Different 3D representations.
-- **trellis/trainers**: Training logic for different models.
-- **trellis/utils**: Utility functions for training and visualization.
-
-### Training Setup
-
-1. **Prepare the Environment:**
-   - Ensure all training dependencies are installed.
-   - Use a Linux system with an NVIDIA GPU (The models are trained on NVIDIA A100 GPUs).
-   - For distributed training, verify that your nodes can communicate through the designated master address and port.
-
-2. **Dataset Preparation:**
-   - Organize your dataset similar to TRELLIS-500K. Specify your dataset path using the `--data_dir` argument when launching training.
-
-3. **Configuration Files:**
-   - Training hyperparameters and model architectures are defined in configuration files under the `configs/` directory.
-   - Example configuration files include:
-
-| Config | Pretained Model | Description |
-| --- | --- | --- |
-| [`vae/ss_vae_conv3d_16l8_fp16.json`](configs/vae/ss_vae_conv3d_16l8_fp16.json) | [Encoder](https://huggingface.co/microsoft/TRELLIS-image-large/blob/main/ckpts/ss_enc_conv3d_16l8_fp16.safetensors) [Decoder](https://huggingface.co/microsoft/TRELLIS-image-large/blob/main/ckpts/ss_dec_conv3d_16l8_fp16.safetensors) | Sparse structure VAE |
-| [`vae/slat_vae_enc_dec_gs_swin8_B_64l8_fp16.json`](configs/vae/slat_vae_enc_dec_gs_swin8_B_64l8_fp16.json) | [Encoder](https://huggingface.co/microsoft/TRELLIS-image-large/blob/main/ckpts/slat_enc_swin8_B_64l8_fp16.safetensors) [Decoder](https://huggingface.co/microsoft/TRELLIS-image-large/blob/main/ckpts/slat_dec_gs_swin8_B_64l8gs32_fp16.safetensors) | SLat VAE with Gaussian Decoder |
-| [`vae/slat_vae_dec_rf_swin8_B_64l8_fp16.json`](configs/vae/slat_vae_dec_rf_swin8_B_64l8_fp16.json) | [Decoder](https://huggingface.co/microsoft/TRELLIS-image-large/blob/main/ckpts/slat_dec_rf_swin8_B_64l8r16_fp16.safetensors) | SLat Radiance Field Decoder |
-| [`vae/slat_vae_dec_mesh_swin8_B_64l8_fp16.json`](configs/vae/slat_vae_dec_mesh_swin8_B_64l8_fp16.json) | [Decoder](https://huggingface.co/microsoft/TRELLIS-image-large/blob/main/ckpts/slat_dec_mesh_swin8_B_64l8m256c_fp16.safetensors) | SLat Mesh Decoder |
-| [`generation/ss_flow_img_dit_L_16l8_fp16.json`](configs/generation/ss_flow_img_dit_L_16l8_fp16.json) | [Denoiser](https://huggingface.co/microsoft/TRELLIS-image-large/blob/main/ckpts/ss_flow_img_dit_L_16l8_fp16.safetensors) | Image conditioned sparse structure Flow Model |
-| [`generation/slat_flow_img_dit_L_64l8p2_fp16.json`](configs/generation/slat_flow_img_dit_L_64l8p2_fp16.json) | [Denoiser](https://huggingface.co/microsoft/TRELLIS-image-large/blob/main/ckpts/slat_flow_img_dit_L_64l8p2_fp16.safetensors) | Image conditioned SLat Flow Model |
-| [`generation/ss_flow_txt_dit_B_16l8_fp16.json`](configs/generation/ss_flow_txt_dit_B_16l8_fp16.json) | [Denoiser](https://huggingface.co/microsoft/TRELLIS-text-base/blob/main/ckpts/ss_flow_txt_dit_B_16l8_fp16.safetensors) | Base text-conditioned sparse structure Flow Model |
-| [`generation/slat_flow_txt_dit_B_64l8p2_fp16.json`](configs/generation/slat_flow_txt_dit_B_64l8p2_fp16.json) | [Denoiser](https://huggingface.co/microsoft/TRELLIS-text-base/blob/main/ckpts/slat_flow_txt_dit_B_64l8p2_fp16.safetensors) | Base text-conditioned SLat Flow Model |
-| [`generation/ss_flow_txt_dit_L_16l8_fp16.json`](configs/generation/ss_flow_txt_dit_L_16l8_fp16.json) | [Denoiser](https://huggingface.co/microsoft/TRELLIS-text-large/blob/main/ckpts/ss_flow_txt_dit_L_16l8_fp16.safetensors) | Large text-conditioned sparse structure Flow Model |
-| [`generation/slat_flow_txt_dit_L_64l8p2_fp16.json`](configs/generation/slat_flow_txt_dit_L_64l8p2_fp16.json) | [Denoiser](https://huggingface.co/microsoft/TRELLIS-text-large/blob/main/ckpts/slat_flow_txt_dit_L_64l8p2_fp16.safetensors) | Large text-conditioned SLat Flow Model |
-| [`generation/ss_flow_txt_dit_XL_16l8_fp16.json`](configs/generation/ss_flow_txt_dit_XL_16l8_fp16.json) | [Denoiser](https://huggingface.co/microsoft/TRELLIS-text-xlarge/blob/main/ckpts/ss_flow_txt_dit_XL_16l8_fp16.safetensors) | Extra-large text-conditioned sparse structure Flow Model |
-| [`generation/slat_flow_txt_dit_XL_64l8p2_fp16.json`](configs/generation/slat_flow_txt_dit_XL_64l8p2_fp16.json) | [Denoiser](https://huggingface.co/microsoft/TRELLIS-text-xlarge/blob/main/ckpts/slat_flow_txt_dit_XL_64l8p2_fp16.safetensors) | Extra-large text-conditioned SLat Flow Model |
-
-### Command-Line Options
-
-The training script can be run as follows:
-```sh
-usage: train.py [-h] --config CONFIG --output_dir OUTPUT_DIR [--load_dir LOAD_DIR] [--ckpt CKPT] [--data_dir DATA_DIR] [--auto_retry AUTO_RETRY] [--tryrun] [--profile] [--num_nodes NUM_NODES] [--node_rank NODE_RANK] [--num_gpus NUM_GPUS] [--master_addr MASTER_ADDR] [--master_port MASTER_PORT]
-
-options:
-  -h, --help                    show this help message and exit
-  --config CONFIG               Experiment config file
-  --output_dir OUTPUT_DIR       Output directory
-  --load_dir LOAD_DIR           Load directory, default to output_dir
-  --ckpt CKPT                   Checkpoint step to resume training, default to latest
-  --data_dir DATA_DIR           Data directory
-  --auto_retry AUTO_RETRY       Number of retries on error
-  --tryrun                      Try run without training
-  --profile                     Profile training
-  --num_nodes NUM_NODES         Number of nodes
-  --node_rank NODE_RANK         Node rank
-  --num_gpus NUM_GPUS           Number of GPUs per node, default to all
-  --master_addr MASTER_ADDR     Master address for distributed training
-  --master_port MASTER_PORT     Port for distributed training
+```text
+models/
+├── TRELLIS-image-large/
+├── TRELLIS-text-large/
+└── translation_zh_en/
 ```
 
-### Example Training Commands
+> 注意：这些模型通常体积较大，默认不建议提交到 GitHub。
 
-#### Single-node Training
+### 6. 启动统一工作台
 
-To train a image-to-3D stage 2 model with a single machine.
-```sh
-python train.py \
-  --config configs/vae/slat_vae_dec_mesh_swin8_B_64l8_fp16.json \
-  --output_dir outputs/slat_vae_dec_mesh_swin8_B_64l8_fp16_1node \
-  --data_dir /path/to/your/dataset1,/path/to/your/dataset2 \
-```
-The script will automatically distribute the training across all available GPUs. Specify the number of GPUs with the `--num_gpus` flag if you want to limit the number of GPUs used.
-
-#### Multi-node Training
-
-To train a image-to-3D stage 2 model with multiple GPUs across nodes (e.g., 2 nodes):
-```sh
-python train.py \
-  --config configs/generation/slat_flow_img_dit_L_64l8p2_fp16.json \
-  --output_dir outputs/slat_flow_img_dit_L_64l8p2_fp16_2nodes \
-  --data_dir /path/to/your/dataset1,/path/to/your/dataset2 \
-  --num_nodes 2 \
-  --node_rank 0 \
-  --master_addr $MASTER_ADDR \
-  --master_port $MASTER_PORT
-```
-Be sure to adjust `node_rank`, `master_addr`, and `master_port` for each node accordingly.
-
-#### Resuming Training
-
-By default, training will resume from the latest saved checkpoint in the same output directory. To specify a specific checkpoint to resume from, use the `--load_dir` and `--ckpt` flags:
-```sh
-python train.py \
-  --config configs/generation/slat_flow_img_dit_L_64l8p2_fp16.json \
-  --output_dir outputs/slat_flow_img_dit_L_64l8p2_fp16_resume \
-  --data_dir /path/to/your/dataset1,/path/to/your/dataset2 \
-  --load_dir /path/to/your/checkpoint \
-  --ckpt [step]
+```bash
+python app_unified.py
 ```
 
-### Additional Options
+默认端口：`7860`
 
-- **Auto Retry:** Use the `--auto_retry` flag to specify the number of retries in case of intermittent errors.
-- **Dry Run:** The `--tryrun` flag allows you to check your configuration and environment without launching full training.
-- **Profiling:** Enable profiling with the `--profile` flag to gain insights into training performance and diagnose bottlenecks.
+如果你要修改端口：
 
-Adjust the file paths and parameters to match your experimental setup.
-
-
-<!-- License -->
-## ⚖️ License
-
-TRELLIS models and the majority of the code are licensed under the [MIT License](LICENSE). The following submodules may have different licenses:
-- [**diffoctreerast**](https://github.com/JeffreyXiang/diffoctreerast): We developed a CUDA-based real-time differentiable octree renderer for rendering radiance fields as part of this project. This renderer is derived from the [diff-gaussian-rasterization](https://github.com/graphdeco-inria/diff-gaussian-rasterization) project and is available under the [LICENSE](https://github.com/JeffreyXiang/diffoctreerast/blob/master/LICENSE).
-
-
-- [**Modified Flexicubes**](https://github.com/MaxtirError/FlexiCubes): In this project, we used a modified version of [Flexicubes](https://github.com/nv-tlabs/FlexiCubes) to support vertex attributes. This modified version is licensed under the [LICENSE](https://github.com/nv-tlabs/FlexiCubes/blob/main/LICENSE.txt).
-
-
-<!-- Citation -->
-## 📜 Citation
-
-If you find this work helpful, please consider citing our paper:
-
-```bibtex
-@article{xiang2024structured,
-    title   = {Structured 3D Latents for Scalable and Versatile 3D Generation},
-    author  = {Xiang, Jianfeng and Lv, Zelong and Xu, Sicheng and Deng, Yu and Wang, Ruicheng and Zhang, Bowen and Chen, Dong and Tong, Xin and Yang, Jiaolong},
-    journal = {arXiv preprint arXiv:2412.01506},
-    year    = {2024}
-}
+```bash
+GRADIO_SERVER_PORT=7861 python app_unified.py
 ```
 
+启动后在浏览器打开：
+
+```text
+http://127.0.0.1:7860
+```
+
+---
+
+## 使用说明
+
+### 文本生成 3D
+1. 打开 `📝 文字输入`
+2. 输入资产名称
+3. 输入提示词
+4. 点击生成
+5. 导出 `GLB` 或 `PLY`
+
+### 单图生成 3D
+1. 打开 `🖼️ 单图片`
+2. 上传参考图
+3. 输入资产名称
+4. 点击生成
+5. 在后台资产中复用或导出
+
+### 多视角生成 3D
+1. 打开 `📷 多视角`
+2. 上传多张视角图
+3. 输入资产名称
+4. 点击生成
+
+### 场景编辑
+1. 打开 `🏗️ 场景编辑器`
+2. 选择已有场景高斯，或上传新的场景 `PLY`
+3. 从后台资产中选择物体
+4. 调整位置 / 旋转 / 缩放
+5. 生成合成场景并导出
+6. 进入浏览器交互编辑器进一步微调
+
+---
+
+## 本地数据目录说明
+
+以下目录会在运行过程中产生内容：
+
+- `generated_assets/`：生成资产结果
+- `tmp/`：临时文件
+- `scenes_gs/`：场景高斯与合成结果
+- `scenes/`：你本地导入的场景文件
+
+这些目录默认都更适合**本地使用**，不建议直接上传到 GitHub。
+
+---
+
+## 开源建议
+
+如果你准备公开这个仓库，建议：
+
+1. **不要上传本地模型**
+   - `models/`
+   - `openai/`
+
+2. **不要上传生成结果和缓存**
+   - `generated_assets/`
+   - `tmp/`
+   - `scenes_gs/`
+   - `*.glb` / `*.ply` / `*.mp4`
+
+3. **不要上传本地环境文件**
+   - `.env`
+   - `.venv/`
+
+4. **README 里说明模型需要用户自行下载**
+
+本仓库已经通过 `.gitignore` 采用“忽略上传而非删除本地文件”的方式，避免影响你当前环境运行。
+
+---
+
+## 已知注意事项
+
+- `scene_downloader.py` 中的“预设场景下载”部分仍以占位逻辑为主，更适合作为本地导入场景的辅助模块，而不是完整的在线场景库。
+- 中文提示词依赖本地翻译模型；如果缺失，只能直接使用英文提示词。
+- 场景编辑与 Gaussian 合成更偏工程实验性质，适合本地工作流，不建议直接当作生产级 SaaS 服务使用。
+
+---
+
+## 致谢
+
+本项目基于微软开源的 `TRELLIS` 进行二次开发与工作台化改造。
+
+- Official TRELLIS: https://github.com/microsoft/TRELLIS
+- Project Page: https://microsoft.github.io/TRELLIS/
+
+如果你在学术、演示或二次开发中使用了本项目，也建议同时遵守上游仓库的许可证与依赖许可证要求。
+
+---
+
+## License
+
+本仓库当前保留上游 `LICENSE`。如果你准备以个人项目公开发布，建议在确认与上游许可证兼容的前提下继续沿用，并在 README 中明确说明“基于 TRELLIS 二次开发”。
