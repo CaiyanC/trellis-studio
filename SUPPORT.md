@@ -1,25 +1,25 @@
-# TODO: The maintainer of this repo has not yet edited this file
-
-**REPO OWNER**: Do you want Customer Service & Support (CSS) support for this product/project?
-
-- **No CSS support:** Fill out this template with information about how to file issues and get help.
-- **Yes CSS support:** Fill out an intake form at [aka.ms/onboardsupport](https://aka.ms/onboardsupport). CSS will work with/help you to determine next steps.
-- **Not sure?** Fill out an intake as though the answer were "Yes". CSS will help you decide.
-
-*Then remove this first heading from this SUPPORT.MD file before publishing your repo.*
-
 # Support
 
-## How to file issues and get help  
+If you encounter a bug, want to request a feature, or have usage questions, please open a GitHub Issue in this repository.
 
-This project uses GitHub Issues to track bugs and feature requests. Please search the existing 
-issues before filing new issues to avoid duplicates.  For new issues, file your bug or 
-feature request as a new Issue.
+## Before opening an issue
 
-For help and questions about using this project, please **REPO MAINTAINER: INSERT INSTRUCTIONS HERE 
-FOR HOW TO ENGAGE REPO OWNERS OR COMMUNITY FOR HELP. COULD BE A STACK OVERFLOW TAG OR OTHER
-CHANNEL. WHERE WILL YOU HELP PEOPLE?**.
+Please try to include the following information when relevant:
 
-## Microsoft Support Policy  
+- a clear description of the problem
+- reproduction steps
+- your environment details (OS, Python version, GPU, CUDA version)
+- related logs or screenshots
 
-Support for this **PROJECT or PRODUCT** is limited to the resources listed above.
+## Issue types
+
+You can use GitHub Issues for:
+
+- bug reports
+- feature requests
+- installation problems
+- usage questions
+
+## Notes
+
+This project is a personal open-source workbench built on top of TRELLIS. Support is provided on a best-effort basis through the repository issue tracker.
